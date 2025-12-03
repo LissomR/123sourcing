@@ -22,6 +22,7 @@ RUN apt-get update \
         libxext6 \
         curl \
         wget \
+        unzip \
         libmariadb-dev \
         pkg-config \
     && apt-get clean \
@@ -40,18 +41,19 @@ COPY . /app
 # Download and extract trained models (Railway will need this)
 RUN if [ ! -d "trained_models" ]; then \
         echo "Downloading trained models..."; \
-        wget -q https://d2hbdgqvbu3n3g.cloudfront.net/123sourcing/trained_models.zip || true; \
-        if [ -f "trained_models.zip" ]; then \
-            unzip -q trained_models.zip; \
-            cd trained_models/cpu-model/model 2>/dev/null || cd trained_models/gpu-model/model; \
-            tar -xf docprompt_params.tar 2>/dev/null || true; \
-            cd ../../..; \
-            rm trained_models.zip; \
-        fi; \
+        wget -q https://d2hbdgqvbu3n3g.cloudfront.net/123sourcing/trained_models.zip && \
+        unzip -q trained_models.zip && \
+        (cd trained_models/cpu-model/model 2>/dev/null || cd trained_models/gpu-model/model) && \
+        tar -xf docprompt_params.tar 2>/dev/null || true && \
+        cd /app && \
+        rm -f trained_models.zip && \
+        echo "Models downloaded successfully"; \
+    else \
+        echo "Models directory already exists, skipping download"; \
     fi
 
 # Collect static files
 RUN python manage.py collectstatic --no-input
 
 # Run gunicorn
-CMD gunicorn --bind 0.0.0.0:${PORT:-8000} api_channel.wsgi:application -t 300 --workers ${WORKERS:-2}
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} api_channel.wsgi:application -t 300 --workers ${WORKERS:-2}"]
