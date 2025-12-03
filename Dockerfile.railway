@@ -57,5 +57,4 @@ RUN if [ ! -d "trained_models" ]; then \
 # Collect static files
 RUN python manage.py collectstatic --no-input
 
-# Run gunicorn
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} api_channel.wsgi:application -t 300 --workers ${WORKERS:-2}"]
+# Railway will use the startCommand from railway.json
