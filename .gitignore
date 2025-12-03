@@ -1,0 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+.vscode/
+db.sqlite3
+
+# 
+venv/
+/documents*
+
+**/trained_models/
+**/productionfiles/
+
+*.xlsx
+*.log
+*.zip
+

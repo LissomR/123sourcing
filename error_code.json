@@ -1,0 +1,22 @@
+{
+    "_comment": "",
+    "50001": "Internal System error, Please try again!",
+    "50002": "Invalid Data",
+    "50003": "Site is not configured yet. Please try again after configured",
+    "50004":"Invalid user credential",
+    "50005":"Email already exist",
+    "50006":"User not found",
+    "50007":"Invalid file selection. Please choose files in supported formats, such as images or PDFs.",
+    "50008":"Invalid file selection. Please choose an image file to add the stamp in VectorDB.",
+    "50009":"Company name is already exist",
+    "50010":"Invalid model selection. Please choose cpu or gpu model.",
+
+
+    "50011":"Session expired, Please login again",
+    "50012":"Unauthorised user",
+    "50013":"User does not exists.",
+    "50014": "Cannot handle URI: 403 Client Error: Forbidden",
+    "50015": "Invalid input format. Provide either an uploaded file or a URL.",
+    "50016": "Download failed: Unable to retrieve document.",
+    "50017": "Input should be a PIL Image or an image path."
+}
