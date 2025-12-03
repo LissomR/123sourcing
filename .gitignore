@@ -1,17 +1,82 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
 *.pyc
-.vscode/
-db.sqlite3
 
-# 
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Virtual environments
 venv/
-/documents*
+env/
+ENV/
+.venv
 
+# Django stuff
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+api_channel/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+/documents*
 **/trained_models/
 **/productionfiles/
-
-*.xlsx
-*.log
 *.zip
+*.tar
+*.tar.gz
+trained_models.zip
+
+# Data files
+*.xlsx
+*.csv
+*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
 
