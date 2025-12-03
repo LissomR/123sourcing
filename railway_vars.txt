@@ -1,0 +1,25 @@
+# Variables de entorno para Railway
+# Copia estas variables en Railway Dashboard
+
+# Django Settings
+DJANGO_SECRET_KEY=django-insecure-f@c6_4-oqw7#g!62&pqgdo0w657xt@epq*a^$8nt48oaop6nr6
+JWT_AUTH_SECRET=fdxqjcqi63843bixvqlibhcwc632
+AUTH_TOKEN_EXPIRE_TIME=1440
+
+# Database (debes crear MySQL en Railway y usar sus credenciales)
+DJANGO_DATABASE_SERVER=<RAILWAY_MYSQL_HOST>
+DJANGO_DATABASE_NAME=railway
+DJANGO_DATABASE_USER=root
+DJANGO_DATABASE_PASSWORD=<RAILWAY_MYSQL_PASSWORD>
+
+# Pinecone
+PINECONE_API_KEY=5f08a0a8-f685-41e4-9d66-f0464852bb26
+PINECONE_INDEX_NAME=iaimages
+
+# Model Settings
+MODELS_PATH=trained_models
+TOKENIZERS_PARALLELISM=false
+JUPYTER_PLATFORM_DIRS=1
+
+# Host (Railway lo configura automáticamente pero puedes dejarlo así)
+HOST_SERVER_URL=https://$RAILWAY_PUBLIC_DOMAIN
