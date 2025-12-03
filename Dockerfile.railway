@@ -34,7 +34,8 @@ WORKDIR /app
 COPY requirements.cpu.txt requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir --force-reinstall numpy==1.23.5
+    && pip install --no-cache-dir --force-reinstall numpy==1.23.5 \
+    && pip install --no-cache-dir --force-reinstall aistudio-sdk==0.1.7
 
 # Copy application code
 COPY . /app
