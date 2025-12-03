@@ -9,8 +9,9 @@ import time
 import paddle
 logger = BaseLog()
 
-device ="gpu" if paddle.is_compiled_with_cuda() else "cpu"
-logger.print(f"Using device for Data Extraction: {device}")
+# Force CPU mode for local development (disable GPU auto-detection)
+device = "cpu"
+logger.print(f"✅ Using device for Data Extraction: {device} (forced for compatibility)")
 
 
 def data_extraction(doc_path, is_stamp_details_required="False"):

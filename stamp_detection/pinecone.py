@@ -16,11 +16,23 @@ from data_extraction.apps import metaClip_preprocess, metaClip_inference
 
 logger = BaseLog()
 
+# Force CPU mode for compatibility
+device=torch.device("cpu")
 
-device=torch.device('cuda' if torch.cuda.is_available() else "cpu")
-
-pinecone = Pinecone(api_key=PINECONE_API_KEY)
-index = pinecone.Index(PINECONE_INDEX_NAME)
+# Initialize Pinecone only if API key is valid
+try:
+    if PINECONE_API_KEY and PINECONE_API_KEY not in ['', '*' * 10, 'your-pinecone-api-key']:
+        pinecone = Pinecone(api_key=PINECONE_API_KEY)
+        index = pinecone.Index(PINECONE_INDEX_NAME)
+        logger.print("✅ Pinecone initialized successfully")
+    else:
+        pinecone = None
+        index = None
+        logger.print("⚠️  Pinecone not configured (invalid/missing API key). Stamp detection features disabled.")
+except Exception as e:
+    pinecone = None
+    index = None
+    logger.print(f"⚠️  Pinecone initialization failed: {str(e)}. Stamp detection features disabled.")
 
 
 def generate_embedding(image):
@@ -39,6 +51,10 @@ def generate_embedding(image):
     - Extracts image features using the model's 'get_image_features' method.
     - Converts the image features to a list and returns it.
     """
+    
+    if metaClip_preprocess is None or metaClip_inference is None:
+        logger.print("⚠️  MetaCLIP model not available, cannot generate embedding")
+        raise Exception("MetaCLIP model not loaded. Image similarity features unavailable in CPU mode.")
 
     with torch.no_grad():
         inputs = metaClip_preprocess(images=image, return_tensors="pt").to(device)
@@ -64,6 +80,10 @@ def search_similar_image(test_image_path: str, threshold):
     - Queries the database for the most similar image using the 'query' method.
     - Extracts and returns relevant information from the query results.
     """
+    
+    if index is None:
+        logger.print("⚠️  Pinecone not available, cannot search similar images")
+        return {}
 
     with Image.open(test_image_path) as img:
         embedding = generate_embedding(img)
@@ -97,6 +117,10 @@ def get_top_match_company_ids(image_path, company_id, top_k=10, score_threshold=
     Exceptions:
     - Exception: Any exception that may occur during the embedding generation, query execution, or result processing.
     """
+    
+    if index is None:
+        logger.print("⚠️  Pinecone not available, cannot get company IDs")
+        return False, []
 
     try:
         stripped_company_id = company_id.lstrip('0')
@@ -222,6 +246,10 @@ def insert_new_stamp_image_company_name(stamp_image, company_id):
     Exceptions:
     - Exception: Any exception that may occur during the image conversion, ID generation, database insertion, or file deletion.
     """
+    
+    if index is None:
+        logger.warning("Pinecone index not available - insert_new_stamp_image_company_name cannot execute")
+        return None
 
     img = cv2.cvtColor(np.array(Image.open(stamp_image)), cv2.COLOR_RGB2BGR)
     stamp_id = f"{company_id}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]}"
