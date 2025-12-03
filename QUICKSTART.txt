@@ -1,0 +1,172 @@
+┌─────────────────────────────────────────────────────────────┐
+│  🚀 GUÍA RÁPIDA - 123sourcing                               │
+└─────────────────────────────────────────────────────────────┘
+
+📦 PROYECTO CONFIGURADO EXITOSAMENTE
+
+✅ Archivos creados:
+   • Dockerfile.railway         → Docker optimizado para CPU
+   • requirements.cpu.txt       → Dependencias para CPU
+   • setup_local.sh            → Script de instalación automática
+   • download_models.sh        → Script de descarga de modelos
+   • railway.json              → Configuración de Railway
+   • .env.example              → Plantilla de variables
+   • README_LOCAL_RAILWAY.md   → Documentación completa
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏠 EJECUTAR LOCALMENTE (OPCIÓN 1 - AUTOMÁTICA)
+
+   ./setup_local.sh
+
+   Este script hará TODO por ti:
+   ✓ Crear entorno virtual
+   ✓ Instalar dependencias
+   ✓ Descargar modelos ML
+   ✓ Configurar MySQL
+   ✓ Crear archivo .env
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏠 EJECUTAR LOCALMENTE (OPCIÓN 2 - MANUAL)
+
+1️⃣  Crear entorno virtual:
+   python3 -m venv venv
+   source venv/bin/activate
+
+2️⃣  Instalar dependencias:
+   pip install -r requirements.cpu.txt
+
+3️⃣  Configurar variables de entorno:
+   cp .env.example api_channel/.env
+   nano api_channel/.env  # Editar con tus valores
+
+4️⃣  Configurar MySQL:
+   mysql -u root -p
+   
+   En MySQL:
+   CREATE DATABASE 123sourcing_db;
+   CREATE USER '123sourcing_user'@'localhost' 
+       IDENTIFIED BY 'tu_password';
+   GRANT ALL PRIVILEGES ON 123sourcing_db.* 
+       TO '123sourcing_user'@'localhost';
+   EXIT;
+   
+   Importar schema:
+   mysql -u 123sourcing_user -p 123sourcing_db < MySql.sql
+
+5️⃣  Descargar modelos:
+   ./download_models.sh
+
+6️⃣  Ejecutar migraciones:
+   python manage.py migrate
+
+7️⃣  Iniciar servidor:
+   python manage.py runserver
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+☁️  DESPLEGAR EN RAILWAY
+
+1️⃣  Instalar Railway CLI:
+   npm i -g @railway/cli
+
+2️⃣  Login y crear proyecto:
+   railway login
+   railway init
+
+3️⃣  Añadir MySQL en Railway Dashboard:
+   • Ve a https://railway.app
+   • Añade servicio MySQL
+
+4️⃣  Configurar variables de entorno:
+   railway variables set DJANGO_SECRET_KEY="tu-secret"
+   railway variables set PINECONE_API_KEY="tu-api-key"
+   railway variables set PINECONE_INDEX_NAME="image-stamp-index"
+   railway variables set DJANGO_DATABASE_SERVER="${{MySQL.MYSQL_HOST}}"
+   railway variables set DJANGO_DATABASE_NAME="${{MySQL.MYSQL_DATABASE}}"
+   railway variables set DJANGO_DATABASE_USER="${{MySQL.MYSQL_USER}}"
+   railway variables set DJANGO_DATABASE_PASSWORD="${{MySQL.MYSQL_PASSWORD}}"
+   railway variables set JWT_AUTH_SECRET="tu-jwt-secret"
+   railway variables set AUTH_TOKEN_EXPIRE_TIME="1440"
+
+5️⃣  Deploy:
+   railway up
+
+6️⃣  Importar schema de base de datos:
+   railway connect MySQL
+   SOURCE MySql.sql;
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 VARIABLES DE ENTORNO REQUERIDAS
+
+Para Local (api_channel/.env):
+┌─────────────────────────────────────────────────────────┐
+│ DJANGO_SECRET_KEY='tu-secret-key'                      │
+│ DJANGO_DATABASE_SERVER=localhost                       │
+│ DJANGO_DATABASE_NAME=123sourcing_db                    │
+│ DJANGO_DATABASE_USER=123sourcing_user                  │
+│ DJANGO_DATABASE_PASSWORD=tu_password                   │
+│ JWT_AUTH_SECRET=tu-jwt-secret                          │
+│ AUTH_TOKEN_EXPIRE_TIME=1440                            │
+│ HOST_SERVER_URL=http://localhost:8000                  │
+│ PINECONE_API_KEY=tu-pinecone-key                       │
+│ PINECONE_INDEX_NAME=image-stamp-index                  │
+│ MODELS_PATH=trained_models                             │
+│ TOKENIZERS_PARALLELISM=false                           │
+└─────────────────────────────────────────────────────────┘
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔑 CONFIGURAR PINECONE
+
+1. Crear cuenta en https://www.pinecone.io/
+2. Crear índice:
+   • Nombre: image-stamp-index
+   • Dimensiones: 768
+   • Metric: cosine
+3. Copiar API Key
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 APIs DISPONIBLES
+
+Una vez ejecutando, accede a:
+
+   Swagger: http://localhost:8000/swagger
+
+Endpoints principales:
+   • POST /AddStamp           → Agregar sello a DB
+   • POST /GetDetails         → Extraer datos de documento
+   • POST /StampVerification  → Verificar sello
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 DOCUMENTACIÓN COMPLETA
+
+   README_LOCAL_RAILWAY.md  → Guía completa en español
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ TODO LISTO Y SUBIDO A GITHUB
+
+   https://github.com/LissomR/123sourcing
+
+   Cambios incluidos:
+   ✓ Soporte para CPU (local y Railway)
+   ✓ Scripts de instalación automática
+   ✓ Dockerfile optimizado para Railway
+   ✓ Documentación completa
+   ✓ Variables de entorno configurables
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 PRÓXIMOS PASOS
+
+1. Ejecutar: ./setup_local.sh
+2. Editar: api_channel/.env
+3. Probar: python manage.py runserver
+4. Desplegar: railway up
+
+¡Éxito con tu proyecto! 🚀
