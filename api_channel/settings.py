@@ -40,8 +40,7 @@ DJANGO_DATABASE_USER=  envs.get('DJANGO_DATABASE_USER', '')
 DJANGO_DATABASE_PASSWORD= envs.get('DJANGO_DATABASE_PASSWORD', '')
 DJANGO_DATABASE_SERVER=  envs.get('DJANGO_DATABASE_SERVER', '')
 DJANGO_DATABASE_PORT= int(envs.get('DJANGO_DATABASE_PORT', '3306'))
-AUTH_TOKEN_EXPIRE_TIME = envs.get('AUTH_TOKEN_EXPIRE_TIME')
-JWT_AUTH_SECRET=envs.get('JWT_AUTH_SECRET')
+API_KEY = envs.get('API_KEY', '')
 
 ALLOWED_HOSTS = ["*"]
 # 
@@ -169,12 +168,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     ),
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
@@ -182,19 +178,16 @@ REST_FRAMEWORK = {
 
 }
 SWAGGER_SETTINGS = {
-    # 'SECURITY_DEFINITIONS': {
-    #     'api_key': {
-    #         'type': 'apiKey',
-    #         'in': 'header',
-    #         'name': 'Authorization',
-    #         "description": "JWT authorization"
-    #     }, 'basic': {
-    #         'type': 'basic'
-    #     }
-    # },
+    'SECURITY_DEFINITIONS': {
+        'api_key': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'X-Api-Key',
+            'description': 'API Key authentication'
+        }
+    },
     'JSON_EDITOR': True,
     'TAGS_SORTER':'alpha',
-    # 'FILTER':'tags'
     'MAX_DISPLAYED_TAGS':1
 }
 

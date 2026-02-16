@@ -11,7 +11,7 @@ class DataExtraction(AuthAPIView):
     parser_classes = (MultiPartParser,)
     @swagger_auto_schema(
             tags=['Data - Extraction'],
-            manual_parameters=[create_swagger_params('Authorization',extra={"default":'Bearer XXXX'})],
+            manual_parameters=[create_swagger_params('X-Api-Key',extra={"default":'your-api-key'})],
             request_body=LoadInvoiceSerializer,
             query_serializer=IsStampDetailsRequiredSerializer,
             operation_id="DATA EXTRACTION API",
@@ -40,7 +40,7 @@ class AddStamp(AuthAPIView):
     parser_classes = (MultiPartParser,)
     @swagger_auto_schema(
             tags=['Add-Stamp'],
-            manual_parameters=[create_swagger_params('Authorization',extra={"default":'Bearer XXXX'})],
+            manual_parameters=[create_swagger_params('X-Api-Key',extra={"default":'your-api-key'})],
             request_body=AddStampSerializer,
             operation_id="ADD STAMP API",
             security=[],
@@ -69,7 +69,7 @@ class VerificationStamp(AuthAPIView):
     parser_classes = (MultiPartParser,)
     @swagger_auto_schema(
             tags=['Stamp Verification'],
-            manual_parameters=[create_swagger_params('Authorization',extra={"default":'Bearer XXXX'})],
+            manual_parameters=[create_swagger_params('X-Api-Key',extra={"default":'your-api-key'})],
             request_body=StampVerificationSerializer,
             operation_id="STAMP VERIFICATION API",
             security=[],

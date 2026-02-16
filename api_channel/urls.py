@@ -39,7 +39,6 @@ urlpatterns = [
     path('swagger/', schema_view.with_ui('swagger',
          cache_timeout=0), name='schema-swagger-ui'),
     path('admin/', admin.site.urls),
-    path('auth/', include('users.urls')),
     path('GetDetails',DataExtraction.as_view() , name='Data Extraction'),
     path('AddStamp',AddStamp.as_view() , name='Add Stamp'),
     path('StampVerification',VerificationStamp.as_view() , name='Stamp Verification'),
