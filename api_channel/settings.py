@@ -39,6 +39,7 @@ DJANGO_DATABASE_NAME= envs.get('DJANGO_DATABASE_NAME', '')
 DJANGO_DATABASE_USER=  envs.get('DJANGO_DATABASE_USER', '')
 DJANGO_DATABASE_PASSWORD= envs.get('DJANGO_DATABASE_PASSWORD', '')
 DJANGO_DATABASE_SERVER=  envs.get('DJANGO_DATABASE_SERVER', '')
+DJANGO_DATABASE_PORT= int(envs.get('DJANGO_DATABASE_PORT', '3306'))
 AUTH_TOKEN_EXPIRE_TIME = envs.get('AUTH_TOKEN_EXPIRE_TIME')
 JWT_AUTH_SECRET=envs.get('JWT_AUTH_SECRET')
 
@@ -68,7 +69,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -104,8 +107,13 @@ DATABASES = {
         'USER': DJANGO_DATABASE_USER,
         'PASSWORD': DJANGO_DATABASE_PASSWORD,
         'HOST': DJANGO_DATABASE_SERVER,
-        'PORT': 3306,
-        'CONN_MAX_AGE': None
+        'PORT': DJANGO_DATABASE_PORT,
+        'CONN_MAX_AGE': None,
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+            'use_unicode': True,
+        }
     }
 }
 
@@ -144,6 +152,11 @@ USE_I18N = True
 
 STATIC_ROOT = BASE_DIR/'productionfiles'
 STATIC_URL = '/static/'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# CORS Configuration
+CORS_ALLOW_ALL_ORIGINS = True
+CSRF_TRUSTED_ORIGINS = [origin for origin in envs.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin]
 
 
 LOG_DELETION=envs.get('LOG_DELETION_DAY', 15)
