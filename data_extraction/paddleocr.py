@@ -3,6 +3,13 @@ from custom_lib.logger import BaseLog
 logger = BaseLog()
 from data_extraction.apps import ocr_inference 
 
+# Pre-compiled regex patterns for number extraction
+_SHIPMENT_PATTERN = re.compile(r'\b\d*47\d*\b')
+_DELIVERY_PATTERN = re.compile(r'\b\d*85\d*\b')
+_DELIVERY_820_10_PATTERN = re.compile(r'\b820\d{7}\b')
+_DELIVERY_820_OTHER_PATTERN = re.compile(r'\b820\d+\b')
+_SHIPMENT_CHECK_PATTERN = re.compile(r'Orde')
+
 
 def data_extraction_by_paddleocr(image):
     """
@@ -89,8 +96,7 @@ def extract_shipment_number(data):
     if not shipment_number_check(data):
         return ""
 
-    combined_pattern = r'\b\d*47\d*\b'
-    matches = re.findall(combined_pattern, data)
+    matches = _SHIPMENT_PATTERN.findall(data)
     
     shipment_id = extract_pattern(matches, '47', prefix_zeros=2)
 
@@ -118,8 +124,7 @@ def extract_delivery_number(data):
     - Any exception that may occur during the pattern matching or alternative extraction.
     """
 
-    pattern = r'\b\d*85\d*\b'
-    matches = re.findall(pattern, data)
+    matches = _DELIVERY_PATTERN.findall(data)
 
     delivery_id = extract_pattern(matches, '85', prefix_zeros=1)
 
@@ -143,10 +148,7 @@ def extract_delivery_number_820_match(text):
     - If no suitable match is found, returns an empty string.
     """
 
-    pattern_10_digits = r"\b820\d{7}\b"
-    pattern_other_digits = r"\b820\d+\b"
-
-    matches = re.findall(pattern_10_digits + "|" + pattern_other_digits, text)
+    matches = _DELIVERY_820_10_PATTERN.findall(text) + _DELIVERY_820_OTHER_PATTERN.findall(text)
 
     if matches:
         first_match = matches[0]
@@ -169,8 +171,7 @@ def shipment_number_check(text):
     """
 
     first_300_character = text[:300]
-    pattern = r'Orde'
-    matches = re.findall(pattern, first_300_character)
+    matches = _SHIPMENT_CHECK_PATTERN.findall(first_300_character)
     if matches:
       return False
     else:

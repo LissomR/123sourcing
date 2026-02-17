@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 from PIL import Image
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from stamp_detection.pinecone import get_company_id_similarity
 from pdf2image import convert_from_path
 import tempfile
@@ -14,6 +15,7 @@ logger = BaseLog()
 def initiate_stamp_detection(image_path):
     """
     Initiates stamp detection on the given image and extracts relevant stamp details.
+    Uses parallel processing for multiple bounding boxes.
 
     Parameters:
     - image_path (str): The path to the image for stamp detection.
@@ -22,9 +24,6 @@ def initiate_stamp_detection(image_path):
     - tuple: A tuple containing two elements:
     - dict: Combined data including the count of detected stamps and details of each stamp.
     - list: List of bounding boxes for detected stamps.
-
-    Exceptions:
-    - Exception: Any exception that may occur during stamp detection, company ID similarity check, or data extraction.
     """
 
     new_result = stamp_detection_model(image_path)
@@ -34,19 +33,40 @@ def initiate_stamp_detection(image_path):
     filtered_bounding_boxes = [item for item in bounding_boxes if item[4] > 0.35]
 
     stamp_details_list = []
-    for box in filtered_bounding_boxes:
 
-        _, stamp_data = get_company_id_similarity(image_path, box[:6])
+    if len(filtered_bounding_boxes) > 1:
+        # Process multiple stamps in parallel
+        def _process_box(box):
+            try:
+                _, stamp_data = get_company_id_similarity(image_path, box[:6])
+                if stamp_data:
+                    return {
+                        'companyId': stamp_data.get("company_id", ""),
+                        'boundingBoxCoordinates': box[:4]
+                    }
+            except Exception as e:
+                logger.print(f"Error processing stamp box: {str(e)}")
+            return None
 
-        if not stamp_data: 
-            logger.print(f"Empty stamp_data for box: {box[:6]}")
-            continue
+        with ThreadPoolExecutor(max_workers=min(len(filtered_bounding_boxes), 4)) as executor:
+            futures = [executor.submit(_process_box, box) for box in filtered_bounding_boxes]
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    stamp_details_list.append(result)
+    else:
+        # Single stamp - process directly without thread overhead
+        for box in filtered_bounding_boxes:
+            _, stamp_data = get_company_id_similarity(image_path, box[:6])
+            if not stamp_data:
+                logger.print(f"Empty stamp_data for box: {box[:6]}")
+                continue
+            stamp_details = {
+                'companyId': stamp_data.get("company_id", ""),
+                'boundingBoxCoordinates': box[:4]
+            }
+            stamp_details_list.append(stamp_details)
 
-        stamp_details = {
-            'companyId': stamp_data.get("company_id", ""),  
-            'boundingBoxCoordinates': box[:4]
-        }
-        stamp_details_list.append(stamp_details)
     combined_data = {
         'stampCount': len(bounding_boxes),
         'stampDetails': stamp_details_list
@@ -141,42 +161,46 @@ def image_file_operation_for_stamp_id_verfication(image_path, company_id, page_i
 def pdf_file_operation_for_stamp_id_verification(file_path, company_id):
     """
     Processes a PDF file for stamp ID verification, extracting relevant information from relevant pages.
+    Cleans up temp files after processing.
 
     Parameters:
     file_path (str): The path to the PDF file.
     company_id (int): The ID of the company associated with the document.
 
     Returns:
-    list: A list of dictionaries, where each dictionary contains the extracted information from a relevant page. Each dictionary contains:
-    company_id (int): The ID of the company associated with the document.
-    page_number (int): The page number of the extracted information.
-    stamp_id (str): The extracted stamp ID (if found).
-    other_extracted_data (dict): Any other extracted information from the page.
-
-    Raises:
-    ValueError: If an error occurs while processing the PDF file. 
-    
+    list: A list of dictionaries containing the extracted information from relevant pages.
     """
     try:
         res = []
+        temp_files = []
 
         pdf_images = convert_from_path(file_path)
         for idx, image in enumerate(pdf_images, start=1):
 
             with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
+                temp_path = temp_image.name
+                temp_files.append(temp_path)
                 image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-                cv2.imwrite(temp_image.name, image_cv2)
+                cv2.imwrite(temp_path, image_cv2)
 
-                relevancy = document_classifer(temp_image.name)
-                if relevancy == "Relevant":
-                    res_dict = image_file_operation_for_stamp_id_verfication(temp_image.name, company_id, idx, False)  
-                    res.append(res_dict) 
+            relevancy = document_classifer(temp_path)
+            if relevancy == "Relevant":
+                res_dict = image_file_operation_for_stamp_id_verfication(temp_path, company_id, idx, False)  
+                res.append(res_dict) 
 
         return res
 
     except Exception as e:
         logger.print(f"Error occurred while get ids: {str(e)}")
         return []
+    finally:
+        # Clean up all temp files
+        for tf in temp_files if 'temp_files' in dir() else []:
+            try:
+                if os.path.exists(tf):
+                    os.remove(tf)
+            except OSError:
+                pass
 
 
 def document_classifer(image_path):

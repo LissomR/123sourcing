@@ -1,3 +1,4 @@
+import os
 from PIL import Image
 from io import BytesIO
 import requests
@@ -163,13 +164,20 @@ def get_company_id_similarity(image, bbox, for_company_id_verification=False, co
             temp_file_path = temp_file.name
             image_path.save(temp_file_path, format='PNG')
 
+        try:
             if for_company_id_verification:
                 existence, filter_res = get_top_match_company_ids(temp_file_path, company_id)
                 return existence, filter_res
 
             filter_res = search_similar_image(temp_file_path, threshold = threshold)
-
-        return False, filter_res
+            return False, filter_res
+        finally:
+            # Always clean up temp file
+            try:
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+            except OSError:
+                pass
     except Exception as e:
         logger.print(f"Error while recognizing stamp: {str(e)}")
         return {}
@@ -256,6 +264,7 @@ def insert_new_stamp_image_company_name(stamp_image, company_id):
     encoded_stamp_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, stamp_id))
     upsert_data = [(encoded_stamp_id, generate_embedding(img), {'company_id' : str(company_id)})]
     index.upsert(vectors=upsert_data, namespace="namespace")
-    time.sleep(15)
+    # Wait for Pinecone index to become consistent (reduced from 15s)
+    time.sleep(5)
     
     return encoded_stamp_id

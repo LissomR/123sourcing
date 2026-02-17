@@ -3,6 +3,7 @@ import re
 import tempfile
 import requests
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pdf2image import convert_from_path
 import cv2
 import numpy as np
@@ -11,7 +12,13 @@ from data_extraction.paddleocr import data_extraction_by_paddleocr, extract_ship
 from custom_lib.logger import BaseLog
 import time
 logger = BaseLog()
-from data_extraction.apps import gpu_model_pipe, cpu_model_pipe 
+from data_extraction.apps import gpu_model_pipe, cpu_model_pipe
+
+# Pre-compiled regex pattern for number validation
+_ONLY_NUMBERS_PATTERN = re.compile(r'\D')
+
+# Reusable HTTP session for connection pooling
+_http_session = requests.Session()
 
 
 number_fields_dict = {
@@ -159,9 +166,38 @@ def start_number_field_extraction(image, extraction_dict, device):
     return results
 
 
+def _process_single_pdf_page(args):
+    """
+    Processes a single PDF page for data extraction. Designed to run in a thread pool.
+    """
+    idx, image, device, is_stamp_details_required = args
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
+            temp_path = temp_image.name
+            image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            cv2.imwrite(temp_path, image_cv2)
+
+        relevancy = document_classifer(temp_path)
+        if relevancy == "Relevant":
+            data = image_file_operation(temp_path, device, is_stamp_details_required, idx, False)
+            return idx, data
+        return idx, None
+    except Exception as e:
+        logger.print(f"Error processing PDF page {idx}: {str(e)}")
+        return idx, None
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
 def pdf_file_operation(file_path, device, is_stamp_details_required="False"):
     """
     Performs operations on a PDF file, extracting relevant data from its images.
+    Uses ThreadPoolExecutor to process pages in parallel for better performance.
 
     Parameters:
     - file_path (str): The path to the PDF file.
@@ -170,33 +206,34 @@ def pdf_file_operation(file_path, device, is_stamp_details_required="False"):
     
     Returns:
     - list: A list containing the extracted data for each relevant image in the PDF.
-
-    Notes:
-    - Uses 'convert_from_path' function from 'pdf2image' library to convert PDF pages to images.
-    - Iterates through the images, classifies them as relevant or not using 'document_classifier'.
-    - If classified as relevant, extracts data from the image using 'image_file_operation'.
-    - Deletes the original PDF file after processing.
-
-    Exceptions:
-    - Exception: Any exception that may occur during PDF conversion, document classification, image processing, or file deletion.
     """
 
     try:
-        res = []
-
         pdf_images = convert_from_path(file_path)
-        for idx, image in enumerate(pdf_images, start=1):
+        page_count = len(pdf_images)
 
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
-                image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-                cv2.imwrite(temp_image.name, image_cv2)
+        if page_count == 1:
+            # Single page - process directly without thread overhead
+            result = _process_single_pdf_page((1, pdf_images[0], device, is_stamp_details_required))
+            return [result[1]] if result[1] is not None else []
 
-                relevancy = document_classifer(temp_image.name)
-                if relevancy == "Relevant":
-                    data = image_file_operation(temp_image.name, device, is_stamp_details_required, idx, False)
-                    res.append(data)
+        # Multiple pages - process classification in parallel, extraction may be sequential
+        # due to model constraints, but classification + I/O benefit from parallelism
+        max_workers = min(page_count, 4)  # Limit workers to avoid memory pressure
+        args_list = [(idx, image, device, is_stamp_details_required) 
+                     for idx, image in enumerate(pdf_images, start=1)]
 
-        return res
+        res = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(_process_single_pdf_page, args): args[0] for args in args_list}
+            for future in as_completed(futures):
+                idx, data = future.result()
+                if data is not None:
+                    res.append((idx, data))
+
+        # Sort by page index to maintain order
+        res.sort(key=lambda x: x[0])
+        return [item[1] for item in res]
 
     except Exception as e:
         logger.print(f"Error occurred while extracting data: {str(e)}")
@@ -242,6 +279,7 @@ def ids_extraction(image_path, device):
 def image_file_operation(image_path, device, is_stamp_details_required="False", page_index=1, is_image=True):
     """
     Performs operations on an image file, extracting information and optionally detecting stamps.
+    When stamp details are required, runs ID extraction and stamp detection in parallel.
 
     Parameters:
     - image_path (str): The path to the image file.
@@ -252,21 +290,25 @@ def image_file_operation(image_path, device, is_stamp_details_required="False", 
 
     Returns:
     - list or dict: If 'is_image' is True, returns a list containing the updated data as a dictionary. If 'is_image' is False, returns the updated data as a dictionary.
-
-    Exceptions:
-    - Exception: Any exception that may occur during the image processing and operations.
     """
 
     try:
         start_time = time.time() 
 
-        ids = ids_extraction(image_path, device)
-        updated_data = {'page': page_index, **ids}
+        if is_stamp_details_required.lower() == "true":
+            # Run ID extraction and stamp detection in parallel
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                ids_future = executor.submit(ids_extraction, image_path, device)
+                stamp_future = executor.submit(initiate_stamp_detection, image_path)
 
-        if is_stamp_details_required.lower()=="true":
+                ids = ids_future.result()
+                stamp_data, _ = stamp_future.result()
 
-            stamp_data, _ = initiate_stamp_detection(image_path)
+            updated_data = {'page': page_index, **ids}
             updated_data.update(stamp_data)
+        else:
+            ids = ids_extraction(image_path, device)
+            updated_data = {'page': page_index, **ids}
 
         end_time = time.time() 
         duration = end_time - start_time 
@@ -312,14 +354,16 @@ def download_store_docs(input_file, folder_name="documents"):
                     pdf_file.write(chunk)
 
         elif isinstance(input_file, str) and input_file.startswith(('https://')):
-            response = requests.get(input_file)
+            response = _http_session.get(input_file, stream=True, timeout=30)
             response.raise_for_status()
 
             file_name = input_file.split('/')[-1]
             pdf_path = os.path.join(folder_name, file_name)
 
             with open(pdf_path, 'wb') as pdf_file:
-                pdf_file.write(response.content)
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        pdf_file.write(chunk)
 
         else:
             raise ValueError(50015)
@@ -349,8 +393,7 @@ def contains_only_numbers(input_string):
     - bool: True if the input string contains only numerical digits; False otherwise.
     """
 
-    pattern = re.compile(r'\D')
-    return not pattern.search(input_string)
+    return not _ONLY_NUMBERS_PATTERN.search(input_string)
 
 
 
