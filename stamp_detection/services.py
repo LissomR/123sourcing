@@ -138,46 +138,42 @@ def image_file_operation_for_stamp_id_verfication(image_path, company_id, page_i
 def pdf_file_operation_for_stamp_id_verification(file_path, company_id):
     """
     Processes a PDF file for stamp ID verification, extracting relevant information from relevant pages.
-    Cleans up temp files after processing.
 
     Parameters:
     file_path (str): The path to the PDF file.
     company_id (int): The ID of the company associated with the document.
 
     Returns:
-    list: A list of dictionaries containing the extracted information from relevant pages.
+    list: A list of dictionaries, where each dictionary contains the extracted information from a relevant page. Each dictionary contains:
+    company_id (int): The ID of the company associated with the document.
+    page_number (int): The page number of the extracted information.
+    stamp_id (str): The extracted stamp ID (if found).
+    other_extracted_data (dict): Any other extracted information from the page.
+
+    Raises:
+    ValueError: If an error occurs while processing the PDF file. 
+    
     """
     try:
         res = []
-        temp_files = []
 
         pdf_images = convert_from_path(file_path)
         for idx, image in enumerate(pdf_images, start=1):
 
             with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
-                temp_path = temp_image.name
-                temp_files.append(temp_path)
                 image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-                cv2.imwrite(temp_path, image_cv2)
+                cv2.imwrite(temp_image.name, image_cv2)
 
-            relevancy = document_classifer(temp_path)
-            if relevancy == "Relevant":
-                res_dict = image_file_operation_for_stamp_id_verfication(temp_path, company_id, idx, False)  
-                res.append(res_dict) 
+                relevancy = document_classifer(temp_image.name)
+                if relevancy == "Relevant":
+                    res_dict = image_file_operation_for_stamp_id_verfication(temp_image.name, company_id, idx, False)  
+                    res.append(res_dict) 
 
         return res
 
     except Exception as e:
         logger.print(f"Error occurred while get ids: {str(e)}")
         return []
-    finally:
-        # Clean up all temp files
-        for tf in temp_files if 'temp_files' in dir() else []:
-            try:
-                if os.path.exists(tf):
-                    os.remove(tf)
-            except OSError:
-                pass
 
 
 def document_classifer(image_path):

@@ -11,13 +11,7 @@ from data_extraction.paddleocr import data_extraction_by_paddleocr, extract_ship
 from custom_lib.logger import BaseLog
 import time
 logger = BaseLog()
-from data_extraction.apps import gpu_model_pipe, cpu_model_pipe
-
-# Pre-compiled regex pattern for number validation
-_ONLY_NUMBERS_PATTERN = re.compile(r'\D')
-
-# Reusable HTTP session for connection pooling
-_http_session = requests.Session()
+from data_extraction.apps import gpu_model_pipe, cpu_model_pipe 
 
 
 number_fields_dict = {
@@ -183,23 +177,15 @@ def pdf_file_operation(file_path, device, is_stamp_details_required="False"):
 
         pdf_images = convert_from_path(file_path)
         for idx, image in enumerate(pdf_images, start=1):
-            temp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
-                    temp_path = temp_image.name
-                    image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-                    cv2.imwrite(temp_path, image_cv2)
 
-                relevancy = document_classifer(temp_path)
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
+                image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                cv2.imwrite(temp_image.name, image_cv2)
+
+                relevancy = document_classifer(temp_image.name)
                 if relevancy == "Relevant":
-                    data = image_file_operation(temp_path, device, is_stamp_details_required, idx, False)
+                    data = image_file_operation(temp_image.name, device, is_stamp_details_required, idx, False)
                     res.append(data)
-            finally:
-                if temp_path and os.path.exists(temp_path):
-                    try:
-                        os.remove(temp_path)
-                    except OSError:
-                        pass
 
         return res
 
@@ -313,16 +299,14 @@ def download_store_docs(input_file, folder_name="documents"):
                     pdf_file.write(chunk)
 
         elif isinstance(input_file, str) and input_file.startswith(('https://')):
-            response = _http_session.get(input_file, stream=True, timeout=30)
+            response = requests.get(input_file)
             response.raise_for_status()
 
             file_name = input_file.split('/')[-1]
             pdf_path = os.path.join(folder_name, file_name)
 
             with open(pdf_path, 'wb') as pdf_file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        pdf_file.write(chunk)
+                pdf_file.write(response.content)
 
         else:
             raise ValueError(50015)
@@ -352,7 +336,8 @@ def contains_only_numbers(input_string):
     - bool: True if the input string contains only numerical digits; False otherwise.
     """
 
-    return not _ONLY_NUMBERS_PATTERN.search(input_string)
+    pattern = re.compile(r'\D')
+    return not pattern.search(input_string)
 
 
 
