@@ -2,7 +2,6 @@ import os
 import cv2
 import numpy as np
 from PIL import Image
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from stamp_detection.pinecone import get_company_id_similarity
 from pdf2image import convert_from_path
 import tempfile
@@ -15,7 +14,6 @@ logger = BaseLog()
 def initiate_stamp_detection(image_path):
     """
     Initiates stamp detection on the given image and extracts relevant stamp details.
-    Uses parallel processing for multiple bounding boxes.
 
     Parameters:
     - image_path (str): The path to the image for stamp detection.
@@ -33,40 +31,19 @@ def initiate_stamp_detection(image_path):
     filtered_bounding_boxes = [item for item in bounding_boxes if item[4] > 0.35]
 
     stamp_details_list = []
+    for box in filtered_bounding_boxes:
 
-    if len(filtered_bounding_boxes) > 1:
-        # Process multiple stamps in parallel
-        def _process_box(box):
-            try:
-                _, stamp_data = get_company_id_similarity(image_path, box[:6])
-                if stamp_data:
-                    return {
-                        'companyId': stamp_data.get("company_id", ""),
-                        'boundingBoxCoordinates': box[:4]
-                    }
-            except Exception as e:
-                logger.print(f"Error processing stamp box: {str(e)}")
-            return None
+        _, stamp_data = get_company_id_similarity(image_path, box[:6])
 
-        with ThreadPoolExecutor(max_workers=min(len(filtered_bounding_boxes), 4)) as executor:
-            futures = [executor.submit(_process_box, box) for box in filtered_bounding_boxes]
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    stamp_details_list.append(result)
-    else:
-        # Single stamp - process directly without thread overhead
-        for box in filtered_bounding_boxes:
-            _, stamp_data = get_company_id_similarity(image_path, box[:6])
-            if not stamp_data:
-                logger.print(f"Empty stamp_data for box: {box[:6]}")
-                continue
-            stamp_details = {
-                'companyId': stamp_data.get("company_id", ""),
-                'boundingBoxCoordinates': box[:4]
-            }
-            stamp_details_list.append(stamp_details)
+        if not stamp_data: 
+            logger.print(f"Empty stamp_data for box: {box[:6]}")
+            continue
 
+        stamp_details = {
+            'companyId': stamp_data.get("company_id", ""),  
+            'boundingBoxCoordinates': box[:4]
+        }
+        stamp_details_list.append(stamp_details)
     combined_data = {
         'stampCount': len(bounding_boxes),
         'stampDetails': stamp_details_list

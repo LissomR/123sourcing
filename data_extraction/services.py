@@ -3,7 +3,6 @@ import re
 import tempfile
 import requests
 import shutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pdf2image import convert_from_path
 import cv2
 import numpy as np
@@ -166,38 +165,9 @@ def start_number_field_extraction(image, extraction_dict, device):
     return results
 
 
-def _process_single_pdf_page(args):
-    """
-    Processes a single PDF page for data extraction. Designed to run in a thread pool.
-    """
-    idx, image, device, is_stamp_details_required = args
-    temp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
-            temp_path = temp_image.name
-            image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-            cv2.imwrite(temp_path, image_cv2)
-
-        relevancy = document_classifer(temp_path)
-        if relevancy == "Relevant":
-            data = image_file_operation(temp_path, device, is_stamp_details_required, idx, False)
-            return idx, data
-        return idx, None
-    except Exception as e:
-        logger.print(f"Error processing PDF page {idx}: {str(e)}")
-        return idx, None
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except OSError:
-                pass
-
-
 def pdf_file_operation(file_path, device, is_stamp_details_required="False"):
     """
     Performs operations on a PDF file, extracting relevant data from its images.
-    Uses ThreadPoolExecutor to process pages in parallel for better performance.
 
     Parameters:
     - file_path (str): The path to the PDF file.
@@ -209,31 +179,29 @@ def pdf_file_operation(file_path, device, is_stamp_details_required="False"):
     """
 
     try:
-        pdf_images = convert_from_path(file_path)
-        page_count = len(pdf_images)
-
-        if page_count == 1:
-            # Single page - process directly without thread overhead
-            result = _process_single_pdf_page((1, pdf_images[0], device, is_stamp_details_required))
-            return [result[1]] if result[1] is not None else []
-
-        # Multiple pages - process classification in parallel, extraction may be sequential
-        # due to model constraints, but classification + I/O benefit from parallelism
-        max_workers = min(page_count, 4)  # Limit workers to avoid memory pressure
-        args_list = [(idx, image, device, is_stamp_details_required) 
-                     for idx, image in enumerate(pdf_images, start=1)]
-
         res = []
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(_process_single_pdf_page, args): args[0] for args in args_list}
-            for future in as_completed(futures):
-                idx, data = future.result()
-                if data is not None:
-                    res.append((idx, data))
 
-        # Sort by page index to maintain order
-        res.sort(key=lambda x: x[0])
-        return [item[1] for item in res]
+        pdf_images = convert_from_path(file_path)
+        for idx, image in enumerate(pdf_images, start=1):
+            temp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_image:
+                    temp_path = temp_image.name
+                    image_cv2 = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                    cv2.imwrite(temp_path, image_cv2)
+
+                relevancy = document_classifer(temp_path)
+                if relevancy == "Relevant":
+                    data = image_file_operation(temp_path, device, is_stamp_details_required, idx, False)
+                    res.append(data)
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
+
+        return res
 
     except Exception as e:
         logger.print(f"Error occurred while extracting data: {str(e)}")
@@ -279,7 +247,6 @@ def ids_extraction(image_path, device):
 def image_file_operation(image_path, device, is_stamp_details_required="False", page_index=1, is_image=True):
     """
     Performs operations on an image file, extracting information and optionally detecting stamps.
-    When stamp details are required, runs ID extraction and stamp detection in parallel.
 
     Parameters:
     - image_path (str): The path to the image file.
@@ -295,20 +262,12 @@ def image_file_operation(image_path, device, is_stamp_details_required="False", 
     try:
         start_time = time.time() 
 
-        if is_stamp_details_required.lower() == "true":
-            # Run ID extraction and stamp detection in parallel
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                ids_future = executor.submit(ids_extraction, image_path, device)
-                stamp_future = executor.submit(initiate_stamp_detection, image_path)
+        ids = ids_extraction(image_path, device)
+        updated_data = {'page': page_index, **ids}
 
-                ids = ids_future.result()
-                stamp_data, _ = stamp_future.result()
-
-            updated_data = {'page': page_index, **ids}
+        if is_stamp_details_required.lower()=="true":
+            stamp_data, _ = initiate_stamp_detection(image_path)
             updated_data.update(stamp_data)
-        else:
-            ids = ids_extraction(image_path, device)
-            updated_data = {'page': page_index, **ids}
 
         end_time = time.time() 
         duration = end_time - start_time 
