@@ -12,12 +12,12 @@ def data_extraction_by_paddleocr(image):
     - image: The input image for text extraction using PaddleOCR.
 
     Returns:
-    - dict: A dictionary containing extracted shipment and delivery IDs.
+    - dict: A dictionary containing extracted Delivery and Ruta.
 
     Notes:
     - Utilizes the 'ocr' function from PaddleOCR to extract text from the image.
     - Processes the OCR result to concatenate the recognized words into text.
-    - Calls functions ('extract_shipment_number' and 'extract_delivery_number') to extract shipment and delivery IDs.
+    - Calls functions ('extract_delivery_number' and 'extract_ruta_number') to extract Delivery and Ruta.
     - Logs the extracted data using 'logger.print'.
 
     Exceptions:
@@ -27,9 +27,9 @@ def data_extraction_by_paddleocr(image):
     try:
         result = ocr_inference.ocr(image)
         text = '\n'.join([word[1][0] for line in result for word in line])
-        embarque_number = extract_shipment_number(text)
-        entrega_number = extract_delivery_number(text)
-        response = {"shipmentId": embarque_number, "deliveryId": entrega_number}
+        delivery_number = extract_delivery_number(text)
+        ruta_number = extract_ruta_number(text)
+        response = {"Delivery": delivery_number, "Ruta": ruta_number}
         logger.print(f"regex: {response}")
         return response
     except Exception as e:
@@ -69,21 +69,13 @@ def extract_pattern(data, target_pattern, prefix_zeros=0):
 def extract_shipment_number(data):
     """
     Extracts a shipment number from a given text string, applying specific rules and validation.
+    (Legacy function - maintained for compatibility)
 
     Parameters:
     - data (str): The text string from which to extract the shipment number.
 
     Returns:
     - str: The extracted shipment number if found and valid, otherwise an empty string.
-
-    Steps:
-    1. Performs a preliminary check using `shipment_number_check` to determine if the text is likely to contain a shipment number. Returns an empty string if not.
-    2. Applies a regular expression pattern (`r'\b\d*47\d*\b'`) to match potential shipment numbers containing the digits "47".
-    3. Extracts the shipment number using the `extract_pattern` function (details of this function's logic are not provided).
-    4. Validates the extracted number:
-        - Ensures it has a minimum length of 7 characters.
-        - If valid, returns the extracted shipment number.
-        - Otherwise, returns an empty string.
     """
 
     if not shipment_number_check(data):
@@ -100,30 +92,60 @@ def extract_shipment_number(data):
 
 def extract_delivery_number(data):
     """
-    Extracts a delivery number from the given data using a regular expression pattern.
+    Extracts Numero de entrega from the given data using a regular expression pattern.
 
     Parameters:
     - data (str): The input data from which the delivery number is to be extracted.
 
     Returns:
-    - str: The extracted delivery number.
+    - str: The extracted delivery number (Numero de entrega).
 
     Notes:
     - Uses a regular expression pattern to find potential matches in the input data.
-    - Extracts the delivery number based on the pattern and a specified prefix ('85').
-    - If the extracted delivery number has less than 7 characters, falls back to an alternative extraction method ('extract_delivery_number_820_match').
-
-    Exceptions:
-    - Assumes the existence of a function 'extract_pattern' for further processing.
-    - Any exception that may occur during the pattern matching or alternative extraction.
+    - Extracts the delivery number based on the pattern (numbers starting with 8).
     """
 
-    pattern = r'\b\d*85\d*\b'
+    # Pattern for Numero de entrega - typically 8 digits starting with 8
+    pattern = r'\b8\d{7}\b'
     matches = re.findall(pattern, data)
 
-    delivery_id = extract_pattern(matches, '85', prefix_zeros=1)
+    if matches:
+        return matches[0]
+    
+    return ""
 
-    return delivery_id if len(delivery_id) >= 7 else extract_delivery_number_820_match(data)
+
+
+def extract_ruta_number(data):
+    """
+    Extracts Numero de envio TMS (Ruta) from the given data using a regular expression pattern.
+
+    Parameters:
+    - data (str): The input data from which the TMS number is to be extracted.
+
+    Returns:
+    - str: The extracted TMS number (Ruta).
+
+    Notes:
+    - Uses a regular expression pattern to find potential matches.
+    - Looks for numbers near 'TMS' or 'envio' keywords.
+    """
+
+    # First try to find number after "Numero de envio TMS" or near TMS
+    tms_pattern = r'(?:TMS|envio\s+TMS)\s*[:\s]*([\d]{4,6})'
+    matches = re.findall(tms_pattern, data, re.IGNORECASE)
+    
+    if matches:
+        return matches[0]
+    
+    # Fallback: look for 5-digit numbers that could be TMS numbers
+    pattern = r'\b\d{5}\b'
+    matches = re.findall(pattern, data)
+    
+    if matches:
+        return matches[0]
+    
+    return ""
 
 
 

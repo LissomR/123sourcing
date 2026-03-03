@@ -7,7 +7,7 @@ from pdf2image import convert_from_path
 import cv2
 import numpy as np
 from stamp_detection.services import initiate_stamp_detection, document_classifer
-from data_extraction.paddleocr import data_extraction_by_paddleocr, extract_shipment_number, extract_delivery_number
+from data_extraction.paddleocr import data_extraction_by_paddleocr, extract_delivery_number, extract_ruta_number
 from custom_lib.logger import BaseLog
 import time
 logger = BaseLog()
@@ -15,8 +15,8 @@ from data_extraction.apps import gpu_model_pipe, cpu_model_pipe
 
 
 number_fields_dict = {
-  "shipmentId": ["what is No. Embarque?", "what is Shipment Number?"],
-  "deliveryId": ["what is No entrega ?", "what is Delivery Note Number?", "what is No. remission?"]
+  "Delivery": ["what is Numero de entrega?", "what is Delivery Number?"],
+  "Ruta": ["what is Numero de envio TMS?", "what is TMS Shipment Number?", "what is Route Number?"]
 }
 
 def initialize_number_extraction_model(image, query, device):
@@ -53,10 +53,10 @@ def initialize_number_extraction_model(image, query, device):
 
 def validate_id(key, answer, model):
     """
-    Validates extracted IDs based on specific rules for shipment and delivery IDs when using the CPU model.
+    Validates extracted IDs based on specific rules for Delivery and Ruta when using the CPU model.
 
     Parameters:
-    - key (str): The key representing the type of ID (e.g., "shipmentId", "deliveryId").
+    - key (str): The key representing the type of ID (e.g., "Delivery", "Ruta").
     - answer (str): The extracted answer from the model.
     - model (str): The name of the model used for extraction.
 
@@ -64,10 +64,10 @@ def validate_id(key, answer, model):
     - bool: True if the extracted ID is valid, False otherwise.
     """
 
-    if key == "shipmentId" and model.lower()=="cpu":
-        return answer == extract_shipment_number(answer)
-    elif key == "deliveryId" and model.lower()=="cpu":
+    if key == "Delivery" and model.lower()=="cpu":
         return answer == extract_delivery_number(answer)
+    elif key == "Ruta" and model.lower()=="cpu":
+        return answer == extract_ruta_number(answer)
     else:
         return True
 
@@ -80,7 +80,7 @@ def is_valid_answer(answer, score, results, key, model):
     - answer (str): The extracted answer to validate.
     - score (float): The confidence score associated with the answer.
     - results (dict): A dictionary containing previously extracted results, used for cross-checking IDs.
-    - key (str): The key representing the type of ID (e.g., "shipmentId", "deliveryId").
+    - key (str): The key representing the type of ID (e.g., "Delivery", "Ruta").
     - model (str): The name of the model used for extraction.
 
     Returns:
@@ -88,17 +88,17 @@ def is_valid_answer(answer, score, results, key, model):
 
     Criteria:
     - Confidence score must be above 0.5.
-    - Answer length must be at least 7 characters.
+    - Answer length must be at least 5 characters.
     - Answer must contain only numbers.
-    - Answer must pass validation based on specific rules for shipment and delivery IDs (via the validate_id function).
-    - Delivery ID must not be identical to the extracted shipment ID (if available).
+    - Answer must pass validation based on specific rules for Delivery and Ruta IDs (via the validate_id function).
+    - Ruta must not be identical to the extracted Delivery (if available).
     """
 
     return (score > 0.9 and    
-            len(answer) >= 7 and
+            len(answer) >= 5 and
             contains_only_numbers(answer) and
             validate_id(key, answer, model) and 
-            not (key=="deliveryId" and answer==results.get("shipmentId", "")))
+            not (key=="Ruta" and answer==results.get("Delivery", "")))
            
 
 def process_queries(image, queries, key, results, device):
@@ -196,7 +196,7 @@ def pdf_file_operation(file_path, device, is_stamp_details_required="False"):
 
 def ids_extraction(image_path, device):
     """
-    Extracts shipment and delivery IDs from an image using a multi-model approach.
+    Extracts Delivery and Ruta from an image using a multi-model approach.
 
     Parameters:
     - image_path (str): The path to the image file.
@@ -204,8 +204,8 @@ def ids_extraction(image_path, device):
 
     Returns:
     - dict: A dictionary containing the extracted IDs, with keys:
-        - shipmentId (str): The extracted shipment ID.
-        - deliveryId (str): The extracted delivery ID.
+        - Delivery (str): The extracted Numero de entrega.
+        - Ruta (str): The extracted Numero de envio TMS.
 
     Steps:
     1. Attempts to extract IDs using the primary number field extraction method (assumed to be LayoutLM based on context).
@@ -214,8 +214,8 @@ def ids_extraction(image_path, device):
     """
 
     default_data = {
-        "shipmentId": "",
-        "deliveryId": "",
+        "Delivery": "",
+        "Ruta": "",
     }
 
     extracted_data = start_number_field_extraction(image_path, number_fields_dict, device)
@@ -349,10 +349,10 @@ def check_values_not_empty(data):
     - data (dict): A dictionary containing key-value pairs.
 
     Returns:
-    - bool: True if all specified keys ('deliveryId', 'shipmentId') have non-empty values; False otherwise.
+    - bool: True if all specified keys ('Delivery', 'Ruta') have non-empty values; False otherwise.
     """
 
-    keys_to_check = ['deliveryId', "shipmentId"]
+    keys_to_check = ['Delivery', "Ruta"]
     return all(data.get(key) for key in keys_to_check)
 
 

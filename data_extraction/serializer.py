@@ -80,8 +80,8 @@ class StampDetailSerializer(serializers.Serializer):
 
 class DataSerializer(serializers.Serializer):
     page = serializers.IntegerField()
-    shipmentId = serializers.CharField()
-    deliveryId = serializers.CharField()
+    Delivery = serializers.CharField()
+    Ruta = serializers.CharField()
     stampCount = serializers.IntegerField()
     stampDetails = StampDetailSerializer(many=True)
 
