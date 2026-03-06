@@ -67,6 +67,7 @@ INSTALLED_APPS = [
 ]+CUSTOM_APPS
 
 MIDDLEWARE = [
+    'custom_lib.custom_middleware.MaintenanceModeMiddleware',  # Primer middleware para interceptar en modo mantenimiento
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

@@ -1,7 +1,34 @@
-import json,traceback
+import json,traceback,os
 from custom_lib.helper import get_error_msg
 from django.http import  JsonResponse, response
 from rest_framework import status
+
+
+class MaintenanceModeMiddleware:
+    """
+    Middleware para modo de mantenimiento.
+    Si MAINTENANCE_MODE=true está en las variables de entorno,
+    todas las solicitudes retornarán error 503 inmediatamente.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Verificar si el modo de mantenimiento está activado
+        maintenance_mode = os.environ.get('MAINTENANCE_MODE', 'false').lower()
+        
+        if maintenance_mode in ['true', '1', 'yes', 'on']:
+            return JsonResponse(
+                {
+                    "errorCode": 503,
+                    "errorMessage": "Sistema en mantenimiento. Servicio temporalmente no disponible para reducir costos durante fase de pruebas.",
+                    "status": "maintenance"
+                }, 
+                status=503
+            )
+        
+        response = self.get_response(request)
+        return response
 
 
 
