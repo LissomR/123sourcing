@@ -35,16 +35,12 @@ PINECONE_INDEX_NAME= envs.get('PINECONE_INDEX_NAME', '')
 
 
 HOST=envs.get("HOST_SERVER_URL",'http://localhost:8000')
-DJANGO_DATABASE_NAME= envs.get('DJANGO_DATABASE_NAME', '')
-DJANGO_DATABASE_USER=  envs.get('DJANGO_DATABASE_USER', '')
-DJANGO_DATABASE_PASSWORD= envs.get('DJANGO_DATABASE_PASSWORD', '')
-DJANGO_DATABASE_SERVER=  envs.get('DJANGO_DATABASE_SERVER', '')
-DJANGO_DATABASE_PORT= int(envs.get('DJANGO_DATABASE_PORT', '3306'))
 API_KEY = envs.get('API_KEY', '')
 
 ALLOWED_HOSTS = ["*"]
 # 
-CUSTOM_APPS=['users', 'data_extraction', 'stamp_detection']
+# MySQL eliminado - Sistema de usuarios deshabilitado
+CUSTOM_APPS=['data_extraction', 'stamp_detection']
 
 MIGRATION_MODULES = {
     **{'auth': None,
@@ -100,20 +96,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'api_channel.wsgi.application'
 
+# SQLite configuration - No external database needed
+# This reduces costs significantly as no MySQL server is required
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': DJANGO_DATABASE_NAME,
-        'USER': DJANGO_DATABASE_USER,
-        'PASSWORD': DJANGO_DATABASE_PASSWORD,
-        'HOST': DJANGO_DATABASE_SERVER,
-        'PORT': DJANGO_DATABASE_PORT,
-        'CONN_MAX_AGE': None,
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-        }
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 

@@ -24,9 +24,6 @@ RUN apt-get update \
         curl \
         wget \
         unzip \
-        libmariadb-dev \
-        pkg-config \
-        default-mysql-client \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
